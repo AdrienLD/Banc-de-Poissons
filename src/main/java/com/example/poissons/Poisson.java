@@ -1,5 +1,6 @@
 package com.example.poissons;
 
+
 public class Poisson {
     public int vitesse;
     public int x;
