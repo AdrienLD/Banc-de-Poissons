@@ -12,6 +12,9 @@ import java.io.IOException;
 
 public class HelloApplication extends Application {
     static Poisson[] banc;
+
+    static final int WIDTH = 800;
+    static final int HEIGHT = 600;
     public void start(Stage stage) throws IOException {
         Stage premierStage = new Stage();
         premierStage.setTitle("Première fenêtre");
