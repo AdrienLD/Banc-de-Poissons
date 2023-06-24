@@ -3,8 +3,8 @@ package com.example.poissons;
 
 public class Poisson {
     public int vitesse;
-    public int x;
-    public int y;
+    public double x;
+    public double y;
     public int direction;
     public static double angleVision = 30;
     public static double distanceVision = 10;
@@ -23,17 +23,18 @@ public class Poisson {
         this.direction = direction;
     }
     public void deplacer() {
-        double angleRadians = Math.toRadians(direction);
-        int nouveauX = x + (int) (vitesse * Math.cos(angleRadians));
-        int nouveauY = y + (int) (vitesse * Math.sin(angleRadians));
-        while (nouveauX < 0 || nouveauX > 100 || nouveauY < 0 || nouveauY > 100) {
-            direction ++;
-            angleRadians = Math.toRadians(direction);
-            nouveauX = x + (int) (vitesse * Math.cos(angleRadians));
-            nouveauY = y + (int) (vitesse * Math.sin(angleRadians));
+        if (x < 0 || x > HelloApplication.WIDTH) {
+            direction = 180 - direction;
         }
-        x = nouveauX;
-        y = nouveauY;
+        if (y < 0 || y > HelloApplication.HEIGHT) {
+            direction = 360 - direction;
+        }
+        if (direction < 0) {
+            direction += 360;
+        }
+        double angleRadians = Math.toRadians(direction);
+        x += (double) (vitesse * Math.cos(angleRadians));
+        y += (double) (vitesse * Math.sin(angleRadians));
     }
 
 }
