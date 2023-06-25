@@ -7,7 +7,7 @@ public class Poisson {
     public double y;
     public int direction;
     public static double angleVision = 30;
-    public static double distanceVision = 10;
+    public static double distanceVision = 40;
 
 
     public static void setDistanceVision(double distanceVision) {
