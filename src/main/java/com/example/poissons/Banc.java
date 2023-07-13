@@ -12,7 +12,7 @@ public class Banc {
         for (int i = 0; i < nombrePoissons; i++) {
             Random random = new Random();
 
-            int vitesseAleatoire = random.nextInt(1) + 1;
+            int vitesseAleatoire = random.nextInt(5) + 1;
             int xAleatoire = random.nextInt(HelloApplication.WIDTH);
             int yAleatoire = random.nextInt(HelloApplication.HEIGHT);
             int directionAleatoire = random.nextInt(360);
