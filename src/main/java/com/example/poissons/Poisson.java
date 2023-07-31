@@ -6,15 +6,18 @@ import javafx.scene.shape.*;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
+import java.util.concurrent.TimeUnit;
 
 public class Poisson {
     public double vitesse;
     public double x;
     public double y;
     public double direction;
-    public static final double angleVision = 120;
+    public static final double angleVision = 220;
     public static final double distanceVision = 40;
     public Arc vuePoisson;
+    public Polygon corpsPoisson;
 
     public Poisson(int vitesse, int x, int y, int direction) {
         this.vitesse = vitesse;
@@ -25,14 +28,11 @@ public class Poisson {
     }
 
     public void creerVue(){
-        // Plutôt que de calculer l'angle entre l'axe des x positifs et chaque point,
-        // nous calculons directement l'angle de début et l'angle de fin
         double angleDebut = direction - angleVision / 2;
         double angleArc = angleVision;
         if (angleArc < 0) {
             angleArc += 360;
         }
-
         vuePoisson = new Arc();
         vuePoisson.setCenterX(x);
         vuePoisson.setCenterY(y);
@@ -95,42 +95,167 @@ public class Poisson {
         x += vitesse * cosAngle;
         y += vitesse * sinAngle;
         List<Poisson> poissonsvisibles = getvisibles(this);
-        double avgDirection = 0;
-        double avgX = 0, avgY = 0;
-        double sepX = 0, sepY = 0;
-        int visibleCount = poissonsvisibles.size();
-        for (Poisson aproximite : poissonsvisibles){
-            avgDirection += aproximite.direction;
-            avgX += aproximite.x;
-            avgY += aproximite.y;
 
-            double dx = x - aproximite.x;
-            double dy = y - aproximite.y;
+        Poisson proches = null;
+        List<Poisson> bonnedistance = new ArrayList<Poisson>();
+        List<Poisson> troploin = new ArrayList<Poisson>();
+        for (Poisson aproximite : poissonsvisibles){
+            if (aproximite == this){
+                continue;
+            }
+            double dx = aproximite.x - x;
+            double dy = aproximite.y - y;
             double distanceSquared = dx * dx + dy * dy;
-            if (distanceSquared  < Math.pow(distanceVision/3, 2)) {
-                sepX += dx / distanceSquared;
-                sepY += dy / distanceSquared;
+            distanceSquared = Math.sqrt(distanceSquared);
+            if (distanceSquared < distanceVision / 2) {
+                this.vuePoisson.setFill(Color.ORANGE);
+                if (proches == null) {
+                    proches = aproximite;
+                } else {
+                    double px = proches.x - x;
+                    double py = proches.y - y;
+                    double pdistanceSquared = dx * dx + dy * dy;
+                    pdistanceSquared = Math.sqrt(pdistanceSquared);
+                    if (pdistanceSquared > distanceSquared) {
+                        proches = aproximite;
+                    }
+                }
+            } else if (distanceSquared < 2 * distanceVision / 3){
+                this.vuePoisson.setFill(Color.GREEN);
+                bonnedistance.add(aproximite);
+            } else {
+                troploin.add(aproximite);
+            }
+        }
+
+        if (Banc.systemeGuidage == 0){
+            guidageDemande(proches, bonnedistance, troploin);
+        } else if (Banc.systemeGuidage == 1){
+            guidageBoids(proches, bonnedistance, troploin);
+        }
+    }
+
+    public void guidageDemande(Poisson proches, List<Poisson> bonnedistance, List<Poisson> troploin){
+        if (proches != null) {
+            double dx = proches.x - x;
+            double dy = proches.y - y;
+            double distance = Math.sqrt(dx * dx + dy * dy);
+            double angleToProches = Math.toDegrees(Math.atan2(dy, dx));
+            double relativeAngle = angleToProches - this.direction;
+            if (relativeAngle > 180) {
+                relativeAngle -= 360;
+            } else if (relativeAngle < -180) {
+                relativeAngle += 360;
+            }
+            double forcevitesse = 1 / distance;
+            direction -= relativeAngle * forcevitesse;
+            vitesse += (4 - vitesse) * forcevitesse;
+        }
+        if (bonnedistance.size() > 0){
+            double sommeX = 0, sommeY = 0, vitessesomme = 0;
+            for (Poisson poissonbonnedistance : bonnedistance) {
+                sommeX += poissonbonnedistance.x;
+                sommeY += poissonbonnedistance.y;
+                vitessesomme += poissonbonnedistance.vitesse;
+            }
+            double moyenneX = sommeX / bonnedistance.size();
+            double moyenneY = sommeY / bonnedistance.size();
+            double moyenneVitesse = vitessesomme / bonnedistance.size();
+            double dx = moyenneX - x;
+            double dy = moyenneY - y;
+            double distance = Math.sqrt(dx * dx + dy * dy);
+            double angleToCentre = Math.toDegrees(Math.atan2(dy, dx));
+            double relativeAngle = angleToCentre - this.direction;
+            if (relativeAngle > 180) {
+                relativeAngle -= 360;
+            } else if (relativeAngle < -180) {
+                relativeAngle += 360;
             }
 
+            double forcevitesse = 1 / distance;
+            direction += relativeAngle * forcevitesse;
+            vitesse += (moyenneVitesse - vitesse) * forcevitesse;
         }
-        if (visibleCount > 0){
-            avgX /= visibleCount;
-            avgY /= visibleCount;
-            avgDirection /= visibleCount;
-            double dx = avgX - x;
-            double dy = avgY - y;
-            double targetDirection = Math.toDegrees(Math.atan2(dy, dx));
-            if (targetDirection < 0) targetDirection += 360;
-            double targetSpeed = Math.sqrt(dx * dx + dy * dy);
-            double sepDirection = Math.toDegrees(Math.atan2(sepY, sepX));
-            vitesse = (targetSpeed - vitesse) * 0.1;
-            if (sepDirection < 0) sepDirection += 360;
-            if (sepX != 0 && sepY != 0 && distanceVision < 0) {
-                direction += ((sepDirection + avgDirection) / 2 - direction) * 0.1;
-            } else {
-                direction += ((targetDirection  + avgDirection) / 2- direction) * 0.1;
+        if (troploin.size() > 0) {
+            vuePoisson.setFill(Color.PURPLE);
+            double sommeX = 0, sommeY = 0;
+            for (Poisson poissonloin : troploin) {
+                sommeX += poissonloin.x;
+                sommeY += poissonloin.y;
+            }
+            double moyenneX = sommeX / troploin.size();
+            double moyenneY = sommeY / troploin.size();
+            double dx = moyenneX - x;
+            double dy = moyenneY - y;
+            double distance = Math.sqrt(dx * dx + dy * dy);
+            double angleToCentre = Math.toDegrees(Math.atan2(dy, dx));
+            double relativeAngle = angleToCentre - this.direction;
+            if (relativeAngle > 180) {
+                relativeAngle -= 360;
+            } else if (relativeAngle < -180) {
+                relativeAngle += 360;
+            }
+
+            double forcevitesse = 4 / distance;
+            direction += relativeAngle * forcevitesse;
+            if (vitesse < 4) {
+                vitesse += vitesse * forcevitesse;
             }
         }
     }
 
+
+
+    public void guidageBoids(Poisson proches, List<Poisson> bonnedistance, List<Poisson> troploin){
+        if (proches != null) {
+            double dx = proches.x - x;
+            double dy = proches.y - y;
+            double angleToProches = Math.toDegrees(Math.atan2(dy, dx));
+            if (angleToProches < 0) angleToProches += 360;
+            double relativeAngle = angleToProches - direction;
+            if (relativeAngle > 180) relativeAngle -= 360;
+            if (relativeAngle < -180) relativeAngle += 360;
+            if (relativeAngle < 0) {
+                direction += 2;
+            } else {
+                direction -= 2;
+            }
+            if (vitesse > 1){
+                vitesse -= 0.1;
+            }
+        } else if (bonnedistance.size() > 0){
+            double angle = 0;
+            double leurvitesse = 0;
+            for (Poisson poissonbonnedistance : bonnedistance){
+                angle += poissonbonnedistance.direction;
+                leurvitesse += poissonbonnedistance.vitesse;
+            }
+            direction += ((angle / bonnedistance.size()) - direction) * 0.1;
+            vitesse += ((leurvitesse / bonnedistance.size()) - vitesse) * 0.5;
+        } else if (troploin.size() > 0){
+            this.vuePoisson.setFill(Color.YELLOW);
+            double sommeX = 0, sommeY = 0;
+            for (Poisson poissonloin : troploin){
+                sommeX += poissonloin.x;
+                sommeY += poissonloin.y;
+            }
+            double moyenneX = sommeX / troploin.size();
+            double moyenneY = sommeY / troploin.size();
+            double dx = moyenneX - x;
+            double dy = moyenneY - y;
+            double angleToProches = Math.toDegrees(Math.atan2(dy, dx));
+            if (angleToProches < 0) angleToProches += 360;
+            double relativeAngle = angleToProches - direction;
+            if (relativeAngle > 180) relativeAngle -= 360;
+            if (relativeAngle < -180) relativeAngle += 360;
+            if (relativeAngle > 0) {
+                direction += 0.5;
+            } else {
+                direction -= 0.5;
+            }
+            vitesse += 0.1;
+        }
+    }
 }
+
+
